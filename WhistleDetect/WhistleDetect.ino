@@ -1,52 +1,62 @@
+// WhistleDetect implements a detector for whistled patterns.
+//
+//  Copyright (C) 2014 Nicola Cimmino
+//
+//    This program is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU General Public License as published by
+//    the Free Software Foundation, either version 3 of the License, or
+//    (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+//
+//    You should have received a copy of the GNU General Public License
+//    along with this program.  If not, see http://www.gnu.org/licenses/.
+//
 #include <Audio.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 
-// GUItool: begin automatically generated code
-AudioInputI2S            i2s1;           //xy=143,290
-AudioAnalyzeFFT1024      fft;      //xy=292,307
+AudioInputI2S            i2s1;
+AudioAnalyzeFFT1024      fft;
 AudioConnection          patchCord1(i2s1, 0, fft, 0);
-AudioControlSGTL5000     sgtl5000;     //xy=294,222
-// GUItool: end automatically generated code
-
+AudioControlSGTL5000     sgtl5000;
 
 void setup()
 {
-  
   AudioMemory(12);
   sgtl5000.enable();
   sgtl5000.inputSelect(AUDIO_INPUT_MIC);
   sgtl5000.lineInLevel(15);
   sgtl5000.micGain(60);
   
+  // For testing we have for now a LED between A7 and A6
   pinMode(A7, OUTPUT);
   pinMode(A6, OUTPUT);
   analogWrite(A7, 0);
   analogWrite(A6, 0);
-  
-  //digitalWrite(13,LOW);
-  
-  //Serial.begin(115200);
-  //while (!Serial) ;
-  delay(300);
-  
 }
 
 char symbol='\0';
 char lastSymbol='\0';
 double lastSymbolTime=0;
+
 void loop()
 {
   
   int peakLocation = getPeakLocation();
   
-  if(floor(peakLocation/10)==2)
+  if(abs(peakLocation-20)<3)
   {
+    Serial.println(peakLocation);
     symbol='L';
   }
-  else if(floor(peakLocation/10)==3)
+  else if(abs(peakLocation-31)<3)
   {
+    Serial.println(peakLocation);
     symbol='H'; 
   }
   else
@@ -59,8 +69,6 @@ void loop()
     lastSymbolTime=millis();
     if(lastSymbol!='\0')
     {
-      //digitalWrite(13,(symbol=='H')?HIGH:LOW);
-      //Serial.println((symbol=='H')?"ON":"OFF");
       analogWrite(A6, (symbol=='H')?255:0);
       lastSymbol='\0';
       delay(500);
@@ -82,6 +90,9 @@ int getPeakLocation()
 {
   while(!fft.available());
   
+  // Peak detector with threshold at 0.1
+  // Detects the FFT bin with the highest
+  // energy above threshold.
   float peak=0.1;
   int peakLocation=-1;
   for(int ix=5; ix<512;ix++)
@@ -93,9 +104,5 @@ int getPeakLocation()
     }  
   }  
   
-  if(peak>0.1)
-  {
-    //Serial.println(peakLocation);  
-  }
   return peakLocation;
 }
