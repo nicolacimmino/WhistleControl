@@ -20,10 +20,23 @@
 #include <SPI.h>
 #include <SD.h>
 
-AudioInputI2S            i2s1;
+AudioInputI2S            i2s_in;
 AudioAnalyzeFFT1024      fft;
-AudioConnection          patchCord1(i2s1, 0, fft, 0);
+AudioConnection          patchCord1(i2s_in, 0, fft, 0);
+
+AudioPlaySdWav           playWav1;       //xy=154,78
+AudioOutputI2S           i2s_out;           //xy=334,89
+AudioConnection          patchCord2(playWav1, 0, i2s_out, 0);
+AudioConnection          patchCord3(playWav1, 1, i2s_out, 1);
+
 AudioControlSGTL5000     sgtl5000;
+
+#define KEY_LEN 200
+#define VERIFICATION_COUNT 2
+
+int key[KEY_LEN];
+
+int expectedError = 0;
 
 void setup()
 {
@@ -31,13 +44,30 @@ void setup()
   sgtl5000.enable();
   sgtl5000.inputSelect(AUDIO_INPUT_MIC);
   sgtl5000.lineInLevel(15);
-  sgtl5000.micGain(60);
+  //sgtl5000.micGain(60);
+  
+  sgtl5000.volume(0.5);
   
   // For testing we have for now a LED between A7 and A6
   pinMode(A7, OUTPUT);
   pinMode(A6, OUTPUT);
   analogWrite(A7, 0);
   analogWrite(A6, 0);
+
+  while(!Serial);
+  delay(300);
+
+ SPI.setMOSI(7);
+  SPI.setSCK(14);
+  if (!(SD.begin(10))) {
+    // stop here, but print a message repetitively
+    while (1) {
+      Serial.println("Unable to access the SD card");
+      delay(500);
+    }
+  }
+  
+  expectedError = train()*1.1;  
 }
 
 char symbol='\0';
@@ -46,44 +76,31 @@ double lastSymbolTime=0;
 
 void loop()
 {
-  
-  int peakLocation = getPeakLocation();
-  
-  if(abs(peakLocation-20)<3)
+  delay(1000);
+  analogWrite(A6, HIGH);
+  int error = detectMelody();
+  analogWrite(A6, LOW);
+  Serial.println((error < expectedError)?"OK":"FAIL");
+}
+
+int detectMelody()
+{
+  Serial.println("Start whistling.");
+  while(getPeakLocation()<0);
+  Serial.println("Listening....");
+ 
+  int cumulativeError=0;
+  for(int ix=0;ix<KEY_LEN;ix++)
   {
-    Serial.println(peakLocation);
-    symbol='L';
-  }
-  else if(abs(peakLocation-31)<3)
-  {
-    Serial.println(peakLocation);
-    symbol='H'; 
-  }
-  else
-  {
-     symbol='\0'; 
-  }
-  
-  if(symbol!=lastSymbol && symbol!='\0')
-  {
-    lastSymbolTime=millis();
-    if(lastSymbol!='\0')
-    {
-      analogWrite(A6, (symbol=='H')?255:0);
-      lastSymbol='\0';
-      delay(500);
-    }
-    else
-    {
-      lastSymbol=symbol; 
-    } 
-  }
-  
-  if(millis()-lastSymbolTime>500)
-  {
-    lastSymbol='\0'; 
-  }
-  
+    int peakLocation = getPeakLocation();
+    int error = abs(key[ix]-peakLocation);
+    cumulativeError += (error>5)?error:0;
+    //Serial.print(peakLocation);
+    //Serial.print(" ");
+    delay(15);
+  } 
+  Serial.println(cumulativeError); 
+  return cumulativeError;
 }
 
 int getPeakLocation()
@@ -103,6 +120,51 @@ int getPeakLocation()
       peakLocation=ix;
     }  
   }  
-  
+
   return peakLocation;
+}
+
+int train()
+{
+  analogWrite(A6, HIGH);
+  playAudio("STWHI.WAV");
+  Serial.println("Start whistling.");
+  while(getPeakLocation()<0);
+  Serial.println("Learning....");
+ 
+  for(int ix=0;ix<KEY_LEN;ix++)
+  {
+    key[ix]=getPeakLocation();
+    //Serial.print(key[ix]);
+    //Serial.print(" ");
+    delay(15);
+  } 
+  analogWrite(A6, LOW);
+  
+  int averageError = 0;
+  for(int ix=0;ix<VERIFICATION_COUNT;ix++)
+  {
+    delay(1000);
+    analogWrite(A6, HIGH);
+    Serial.println("Repeat to verify...");
+    averageError += detectMelody();
+    analogWrite(A6, LOW);  
+  }
+  averageError=averageError/VERIFICATION_COUNT;
+  //Serial.println("");
+  return averageError;
+}
+
+void playAudio(const char *filename)
+{
+  playWav1.play(filename);
+
+  // Wait before testing if we are playing
+  // as it will return false until file
+  // is read.
+  delay(5);
+
+  // Wait until the file is finished to play.
+  while (playWav1.isPlaying());
+ 
 }
