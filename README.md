@@ -14,4 +14,6 @@ This is the very first iteration and it just makes use of the Teensy 3.1 Audio l
 
 This is a quite intuitive way to control the LED (try to whistle low-high and high-low and you will feel the association to on and off respectively quite easily).
 
+See a video of the device in action at https://www.youtube.com/watch?v=cjvEFRKRVuU
+
 
