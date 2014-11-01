@@ -22,7 +22,7 @@ Release 0.2
 
 This is the second iteration that is able to learn a whistled melody and recognize it. I have also added, purely for fun, vocal feedback to guide the user in the various steps. The current firmware learns one whistles tune at boot and then requests the user to repeat it two times to verify it. After that it will sit listening for whistles and light up the red LED, and give vocal feedback, if the correct melody is recognized. This is a bit fuzzy and if the user is not a good whistle performer it might be rather hard for him to get a successfull match.
 
-
+See a video of the device with 0.2 firmware in action at https://www.youtube.com/watch?v=u6i-6NaJGTE
 
 
 
