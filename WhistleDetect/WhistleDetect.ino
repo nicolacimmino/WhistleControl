@@ -54,7 +54,7 @@ void setup()
   analogWrite(A7, 0);
   analogWrite(A6, 0);
 
-  while(!Serial);
+  //while(!Serial);
   delay(300);
 
  SPI.setMOSI(7);
@@ -76,11 +76,24 @@ double lastSymbolTime=0;
 
 void loop()
 {
-  delay(1000);
-  analogWrite(A6, HIGH);
-  int error = detectMelody();
-  analogWrite(A6, LOW);
-  Serial.println((error < expectedError)?"OK":"FAIL");
+  playAudio("Listen.wav");
+  while(true)
+  {
+    int error = detectMelody();
+    Serial.println((error < expectedError)?"OK":"FAIL");
+    if(error < expectedError)
+    {
+      analogWrite(A6, HIGH);
+      playAudio("Correct.wav");
+      playAudio("Listen.wav"); 
+      analogWrite(A6, LOW);
+    }
+    else
+    {
+      playAudio("Wrong.wav");  
+    }
+    delay(1000);
+  }
 }
 
 int detectMelody()
@@ -126,8 +139,7 @@ int getPeakLocation()
 
 int train()
 {
-  analogWrite(A6, HIGH);
-  playAudio("STWHI.WAV");
+  playAudio("LeStart.wav");
   Serial.println("Start whistling.");
   while(getPeakLocation()<0);
   Serial.println("Learning....");
@@ -139,16 +151,25 @@ int train()
     //Serial.print(" ");
     delay(15);
   } 
-  analogWrite(A6, LOW);
   
   int averageError = 0;
   for(int ix=0;ix<VERIFICATION_COUNT;ix++)
   {
     delay(1000);
-    analogWrite(A6, HIGH);
+    playAudio("LeVerify.wav");
     Serial.println("Repeat to verify...");
-    averageError += detectMelody();
-    analogWrite(A6, LOW);  
+    int error = detectMelody();
+    if(error>3000)
+    {
+      playAudio("LeVeFail.wav"); 
+      ix--;
+      continue; 
+    }
+    else
+    {
+      playAudio("ok.wav"); 
+    }
+    averageError += error; 
   }
   averageError=averageError/VERIFICATION_COUNT;
   //Serial.println("");
