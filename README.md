@@ -17,3 +17,11 @@ This is a quite intuitive way to control the LED (try to whistle low-high and hi
 See a video of the device in action at https://www.youtube.com/watch?v=cjvEFRKRVuU
 
 
+Release 0.2
+===========
+
+This is the second iteration that is able to learn a whistled melody and recognize it. I have also added, purely for fun, 
+
+
+
+
