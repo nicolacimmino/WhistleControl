@@ -20,7 +20,7 @@ See a video of the device in action at https://www.youtube.com/watch?v=cjvEFRKRV
 Release 0.2
 ===========
 
-This is the second iteration that is able to learn a whistled melody and recognize it. I have also added, purely for fun, 
+This is the second iteration that is able to learn a whistled melody and recognize it. I have also added, purely for fun, vocal feedback to guide the user in the various steps. The current firmware learns one whistle tune 
 
 
 
