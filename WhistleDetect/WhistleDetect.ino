@@ -23,29 +23,37 @@
 AudioInputI2S            i2s_in;
 AudioAnalyzeFFT1024      fft;
 AudioConnection          patchCord1(i2s_in, 0, fft, 0);
-
-AudioPlaySdWav           playWav1;       //xy=154,78
-AudioOutputI2S           i2s_out;           //xy=334,89
+AudioPlaySdWav           playWav1;
+AudioOutputI2S           i2s_out;
 AudioConnection          patchCord2(playWav1, 0, i2s_out, 0);
 AudioConnection          patchCord3(playWav1, 1, i2s_out, 1);
-
 AudioControlSGTL5000     sgtl5000;
 
+// This is the amount of peaks detected, in frequency domain, from
+// the original melody sample.
 #define KEY_LEN 200
+
+// This is the amount of times the user should repeat the original
+// whistled melody.
 #define VERIFICATION_COUNT 2
 
+// Peaks in frequency domain from the original melody.
 int key[KEY_LEN];
 
+// Estimated during the verificatin phase keeps into account
+//  the ability of the user to repeat the melody consistently.
 int expectedError = 0;
+
+// How main bins a detected peak can be off from the expected
+// and still be considered valid.
+#define DETECT_ERROR_HYSTERESIS 5
 
 void setup()
 {
   AudioMemory(12);
   sgtl5000.enable();
   sgtl5000.inputSelect(AUDIO_INPUT_MIC);
-  sgtl5000.lineInLevel(15);
-  //sgtl5000.micGain(60);
-  
+  sgtl5000.lineInLevel(15);  
   sgtl5000.volume(0.5);
   
   // For testing we have for now a LED between A7 and A6
@@ -54,33 +62,34 @@ void setup()
   analogWrite(A7, 0);
   analogWrite(A6, 0);
 
-  //while(!Serial);
-  delay(300);
-
- SPI.setMOSI(7);
+  // Init SD Card
+  SPI.setMOSI(7);
   SPI.setSCK(14);
-  if (!(SD.begin(10))) {
-    // stop here, but print a message repetitively
-    while (1) {
+  if (!(SD.begin(10))) 
+  {
+    // We cannot continue without the SD
+    while (1) 
+    {
       Serial.println("Unable to access the SD card");
       delay(500);
     }
   }
   
+  // Do the training once at startup and estimate the
+  // expected max error as 10% more of the average
+  // error detected in training.
   expectedError = train()*1.1;  
 }
-
-char symbol='\0';
-char lastSymbol='\0';
-double lastSymbolTime=0;
 
 void loop()
 {
   playAudio("Listen.wav");
   while(true)
   {
+    // Detect the melody and report success if the 
+    //  error was less than the maximum.
     int error = detectMelody();
-    Serial.println((error < expectedError)?"OK":"FAIL");
+    
     if(error < expectedError)
     {
       analogWrite(A6, HIGH);
@@ -92,27 +101,36 @@ void loop()
     {
       playAudio("Wrong.wav");  
     }
+    
+    // Not strictly necessary but when the user gets it wrong
+    // he might get the "wrong, try again" prompt while he is
+    // still whistling, if he doesn't stop immediately this
+    // might trigger the next call to "detectMelody" wich might
+    // turn out to be rather annoying.
     delay(1000);
   }
 }
 
+/*
+ * Here we sample the incoming sound and estimate how much it maches
+ * with the original one. Sampling, FFT and peak detection is done
+ * as in the learning phase. Cumulative error is then calculated after
+ * after passing it through a non linear function to allow for a small
+ * error of few FFT bins. 
+ */
 int detectMelody()
 {
-  Serial.println("Start whistling.");
   while(getPeakLocation()<0);
-  Serial.println("Listening....");
- 
+
   int cumulativeError=0;
   for(int ix=0;ix<KEY_LEN;ix++)
   {
     int peakLocation = getPeakLocation();
     int error = abs(key[ix]-peakLocation);
-    cumulativeError += (error>5)?error:0;
-    //Serial.print(peakLocation);
-    //Serial.print(" ");
+    cumulativeError += (error>DETECT_ERROR_HYSTERESIS)?error:0;
     delay(15);
   } 
-  Serial.println(cumulativeError); 
+  
   return cumulativeError;
 }
 
@@ -140,15 +158,11 @@ int getPeakLocation()
 int train()
 {
   playAudio("LeStart.wav");
-  Serial.println("Start whistling.");
   while(getPeakLocation()<0);
-  Serial.println("Learning....");
- 
+  
   for(int ix=0;ix<KEY_LEN;ix++)
   {
     key[ix]=getPeakLocation();
-    //Serial.print(key[ix]);
-    //Serial.print(" ");
     delay(15);
   } 
   
@@ -157,7 +171,6 @@ int train()
   {
     delay(1000);
     playAudio("LeVerify.wav");
-    Serial.println("Repeat to verify...");
     int error = detectMelody();
     if(error>3000)
     {
@@ -172,7 +185,6 @@ int train()
     averageError += error; 
   }
   averageError=averageError/VERIFICATION_COUNT;
-  //Serial.println("");
   return averageError;
 }
 
@@ -181,8 +193,7 @@ void playAudio(const char *filename)
   playWav1.play(filename);
 
   // Wait before testing if we are playing
-  // as it will return false until file
-  // is read.
+  // as it will return false until file is read.
   delay(5);
 
   // Wait until the file is finished to play.
